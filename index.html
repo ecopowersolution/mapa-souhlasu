@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Mapa souhlasu - EcoPower Solution</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#map{width:100%;height:100vh}
+.panel{position:absolute;z-index:1000;background:white;padding:12px 16px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);font-size:13px}
+.info{top:10px;right:10px;max-width:280px}
+.info h3{margin-bottom:6px;font-size:15px}
+.info .stat{color:#555;margin-bottom:2px}
+.search-box{position:absolute;top:10px;left:60px;z-index:1000;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);padding:8px 12px}
+.search-box input{border:1px solid #ddd;border-radius:4px;padding:6px 10px;font-size:13px;width:280px;outline:none}
+.search-box input:focus{border-color:#7c3aed}
+.search-results{max-height:280px;overflow-y:auto;margin-top:6px}
+.search-results div{padding:5px 8px;cursor:pointer;border-radius:4px;font-size:12px}
+.search-results div:hover{background:#f5f3ff}
+.leaflet-popup-content{max-width:350px;line-height:1.5}
+.pp-owner{font-weight:700;font-size:15px;margin-bottom:4px;color:#1a1a2e}
+.pp-ku{font-size:13px;color:#555;margin-bottom:6px}
+.pp-row{font-size:13px;margin-bottom:2px}
+.pp-row b{color:#333}
+.legend{position:absolute;bottom:30px;right:10px;z-index:1000;background:white;padding:12px 16px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);font-size:12px;max-height:80vh;overflow-y:auto}
+.legend-title{font-weight:700;margin-bottom:6px;font-size:13px}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.legend-rect{width:20px;height:14px;border-radius:2px;border:1px solid rgba(0,0,0,.3)}
+.legend-dot{width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.legend-sep{border-top:1px solid #eee;margin:6px 0;padding-top:6px}
+.layer-toggle{position:absolute;top:70px;left:60px;z-index:1000;background:white;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);padding:8px 12px;font-size:13px}
+.layer-toggle label{display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px}
+#lockscreen{position:fixed;inset:0;z-index:9999;background:#1a1a2e;display:flex;align-items:center;justify-content:center}
+#lockscreen .box{background:white;padding:32px 36px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);max-width:320px;width:90%;text-align:center}
+#lockscreen h2{font-size:18px;margin-bottom:16px;color:#1a1a2e}
+#lockscreen input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:12px;outline:none}
+#lockscreen input:focus{border-color:#7c3aed}
+#lockscreen button{width:100%;padding:10px;border:none;border-radius:6px;background:#7c3aed;color:white;font-size:14px;font-weight:600;cursor:pointer}
+#lockscreen button:hover{background:#6d28d9}
+#lockscreen .err{color:#e11d48;font-size:12px;margin-top:8px;min-height:16px}
+#appwrap{display:none}
+</style>
+</head>
+<body>
+
+<div id="lockscreen">
+  <div class="box">
+    <h2>Mapa souhlasu &mdash; EcoPower Solution</h2>
+    <form id="lockform">
+      <input type="password" id="pw" placeholder="Heslo" autofocus>
+      <button type="submit">Vstoupit</button>
+      <div class="err" id="pwerr"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appwrap">
+<div id="map"></div>
+<div class="search-box">
+  <input type="text" id="search" placeholder="Hledat KU, vlastnika, parcelu...">
+  <div class="search-results" id="results"></div>
+</div>
+<div class="layer-toggle">
+  <label><input type="checkbox" id="toggleZones" checked> CEZ VN zony (pripojeni)</label>
+  <label><input type="checkbox" id="toggleSouhlasy" checked> Souhlasy</label>
+  <label><input type="checkbox" id="toggleRozvodny" checked> Rozvodny</label>
+  <label><input type="checkbox" id="toggleAkuVN"> Akumulace VN</label>
+  <label><input type="checkbox" id="toggleAkuVVN"> Akumulace VVN</label>
+</div>
+<div class="panel info">
+  <h3>Souhlasy vlastniku</h3>
+  <div class="stat">Souhlasu na mape: <b>151</b></div>
+</div>
+<div class="legend">
+  <div class="legend-title">CEZ VN kapacity (pripojeni)</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(56,168,0,0.5)"></div> Volna >10 MW</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(255,255,0,0.5)"></div> Volna <=10 MW</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(255,170,0,0.45)"></div> Omezeni pripojeni</div>
+  <div class="legend-sep"></div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div> Souhlas vlastnika</div>
+  <div class="legend-sep"></div>
+  <div class="legend-title">Rozvodny</div>
+  <div class="legend-item"><div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #e91e90"></div> Rozvodna VN</div>
+  <div class="legend-item"><div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #8B4513"></div> Rozvodna 400 kV</div>
+  <div class="legend-sep"></div>
+  <div class="legend-title">Akumulace VN (baterie)</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(21,101,192,0.55)"></div> Volna >10 MW</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(100,181,246,0.5)"></div> Volna <=10 MW</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(96,125,139,0.45)"></div> Omezeni pripojeni</div>
+  <div class="legend-sep"></div>
+  <div class="legend-title">Akumulace VVN (baterie)</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(106,27,154,0.5)"></div> Volna >50 MW</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(186,104,200,0.45)"></div> Volna <=50 MW transformace PS/vvn</div>
+  <div class="legend-item"><div class="legend-rect" style="background:rgba(50,50,50,0.35)"></div> Omezeni pripojeni</div>
+</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="zones.js"></script>
+<script src="rozvodny.js"></script>
+<script src="akumulace_vn.js"></script>
+<script src="akumulace_vvn.js"></script>
+<script>
+var points = [{"ku":"Popůvky u Kojetína","lat":49.3260196,"lon":17.3047881,"vl":"Martin Dlabaja","lv":"166","p":"241/1, 242/2"},{"ku":"Kunčice nad Labem","lat":50.5818627,"lon":15.6194291,"vl":"Josef Duran, Zdeňka Kytnarová, Petr Kytnar","lv":"384","p":"215, 208/5, 214"},{"ku":"Počaply","lat":49.538665,"lon":13.9834557,"vl":"SJ Miroslav Hašek","lv":"2183","p":"1712, 587/6, 1715, 848a"},{"ku":"Česká Lípa","lat":50.6865452,"lon":14.5372974,"vl":"KKCIG s.r.o.","lv":"14894","p":"5016/8, 5016/11"},{"ku":"Albrechtice u Českého Těšína","lat":49.7929,"lon":18.5245,"vl":"Lukáš Topiarz","lv":"422","p":"1666/2"},{"ku":"Albrechtice u Českého Těšína","lat":49.7929,"lon":18.5245,"vl":"Lukáš Topiarz","lv":"422","p":"Aces/8"},{"ku":"Albrechtice u Českého Těšína","lat":49.7929,"lon":18.5245,"vl":"Lukáš Topiarz","lv":"422","p":"1666/2"},{"ku":"Albrechtice u Českého Těšína","lat":49.7929,"lon":18.5245,"vl":"Lukáš Topiarz","lv":"422","p":"Aces/8"},{"ku":"Bezděkov u Klatov","lat":49.3816,"lon":13.2318,"vl":"Radek Kollross","lv":"800","p":"7/23"},{"ku":"Bludov","lat":49.9466,"lon":16.9338,"vl":"Marta Grézová","lv":"2373","p":"2726/1"},{"ku":"Bohuslavice nad Moravou","lat":49.4845,"lon":17.2048,"vl":"Vítězslav Koukal","lv":"460","p":"758"},{"ku":"Bor u Karlových Var","lat":50.2515,"lon":12.9387,"vl":"Marie Nikolová","lv":"110","p":"1443/6"},{"ku":"Bratrušov","lat":50.0093,"lon":16.9496,"vl":"Direct System s.r.o., Martin Dlabaja, Milan Mokroš","lv":"118","p":"1359/2, 1360/3"},{"ku":"Cheb","lat":50.0793562,"lon":12.370353,"vl":"Vlastimil Herink","lv":"16117","p":"818/15, 818/4"},{"ku":"Chlumčany u Přeštic","lat":49.629015,"lon":13.3018165,"vl":"Lukáš Štich","lv":"1283","p":"1180"},{"ku":"Chýně","lat":50.0606462,"lon":14.2272998,"vl":"Aleš Keil","lv":"1453","p":"834"},{"ku":"Citice","lat":50.162559,"lon":12.6133229,"vl":"Radomil Kohút, Lenka Kohút","lv":"283","p":"366"},{"ku":"Dolní Datyně","lat":49.7642977,"lon":18.4079964,"vl":"KOOBAL Czech republic s.r.o., Ing. Radim Kožušník","lv":"394","p":"308/9 a část 308/3"},{"ku":"Dolní Kalná","lat":50.538874,"lon":15.6391934,"vl":"Michal Mašek","lv":"451","p":"1458"},{"ku":"Dolní Lomnice u Kunic","lat":49.92067,"lon":14.6721941,"vl":"Lenka Vilková","lv":"1342","p":"584/28"},{"ku":"Dolní Lukavice","lat":49.602853,"lon":13.3449073,"vl":"František Turek, Jaroslava Turková","lv":"1283","p":"234/1, 236/3, 232/1, 232/10, 232/8, 232/7, 128, 232/4, 232/9, 225/1, 768/2"},{"ku":"Dolní Lukavice","lat":49.602853,"lon":13.3449073,"vl":"Radek Bažant","lv":"1437","p":"964"},{"ku":"Dolní Lukavice","lat":49.602853,"lon":13.3449073,"vl":"František Turek, Jaroslava Turková","lv":"1283","p":"234/1, 236/3, 232/1, 232/10, 232/8, 232/7, 128, 232/4, 232/9, 225/1, 768/2"},{"ku":"Dolní Lukavice","lat":49.602853,"lon":13.3449073,"vl":"Radek Bažant","lv":"1437","p":"964"},{"ku":"Dolní Suchá","lat":49.8049987,"lon":18.43202,"vl":"FreOn Services s.r.o.","lv":"2054","p":"1/75"},{"ku":"Doubrava u Orlové","lat":49.8608585,"lon":18.4736903,"vl":"Remindee s.r.o","lv":"1209","p":"2035 , 2036 , 2037, 2038 , 2041,  2109/2, 2132, 2134, 2135 , 2137"},{"ku":"Dvůr Králové nad Labem","lat":50.4319053,"lon":15.8139947,"vl":"Tadeáš Vodička","lv":"1349","p":"756/21"},{"ku":"Dětřichov u Frýdlantu","lat":50.8886273,"lon":15.041875,"vl":"Maiksnerová Hana","lv":"366","p":"2146/1"},{"ku":"Frýdlant","lat":50.9216775,"lon":15.0794594,"vl":"Maiksner Josef","lv":"2712","p":"3832/11"},{"ku":"Frýdlant","lat":50.9216775,"lon":15.0794594,"vl":"Maiksner Tomáš","lv":"2702","p":"3671/1, 3664/2"},{"ku":"Hlubočky","lat":49.6280891,"lon":17.4024155,"vl":"Erik Kubelka, MBA","lv":"2379","p":"1370"},{"ku":"Hlubočky","lat":49.6280891,"lon":17.4024155,"vl":"Erik Kubelka, MBA","lv":"2379","p":"2865"},{"ku":"Hodolany","lat":49.5926857,"lon":17.2844609,"vl":"Martin Ilahaja","lv":"4739","p":"246/2,228/2,228/5,256/4, 1849"},{"ku":"Holice u Olomouce","lat":49.5621979,"lon":17.2886103,"vl":"Vila na sile s.r.o.","lv":"2208","p":"1656/22"},{"ku":"Skály u Rýmařova","lat":49.9175596,"lon":17.2234282,"vl":"Jaroslav Kincl","lv":"123","p":"116/1, 648/2, 119/1"},{"ku":"Horní Těrlicko","lat":49.7518,"lon":18.4829,"vl":"Kamil Šrotek, Ing. Jan Šrotek","lv":"1224","p":"3184"},{"ku":"Hostomice nad Bílinou","lat":50.5904497,"lon":13.8103344,"vl":"Jana Jirčíková","lv":"411","p":"777"},{"ku":"Slezské předměstí","lat":50.2197921,"lon":15.8577548,"vl":"Alessandria Hradec Králové spol. s r.o.","lv":"4981","p":"95/4"},{"ku":"Hranice","lat":49.5482,"lon":17.7347,"vl":"Služby ŠVARC, s.r.o.","lv":"9531","p":"975/6"},{"ku":"Hylváty","lat":49.9560386,"lon":16.4060444,"vl":"Anna Dostálková, Lukáš Dostálek","lv":"4687","p":"483/17"},{"ku":"Jaroměř","lat":50.3555139,"lon":15.9189129,"vl":"Jan Roštejnský","lv":"5002","p":"1020/11, 1011"},{"ku":"Jenišov","lat":50.2266587,"lon":12.7998167,"vl":"Ivo Kacerovský","lv":"420","p":"416"},{"ku":"Jistebník","lat":49.7539958,"lon":18.1306303,"vl":"Mgr. Iveta Bali Tomášková","lv":"902","p":"1688"},{"ku":"Keblice","lat":50.4805189,"lon":14.1017653,"vl":"Jaroslava Škopová","lv":"","p":"407/13"},{"ku":"Klikařov","lat":49.4520437,"lon":13.5077481,"vl":"Ing. Hana Sluková","lv":"172","p":"180"},{"ku":"Kolová","lat":50.1874344,"lon":12.9033343,"vl":"Ivo Kacerovský","lv":"18","p":"686/1"},{"ku":"Korozluky","lat":50.4785794,"lon":13.7229757,"vl":"Ing. René Vinklárek","lv":"257","p":"105/77"},{"ku":"Kosmová","lat":50.0352537,"lon":12.9744468,"vl":"Radomil Kubát","lv":"141","p":"63/1, 1382/1"},{"ku":"Kostelec u Heřmanova Městce","lat":49.9233212,"lon":15.6515365,"vl":"Jan Štěňha","lv":"37","p":"68"},{"ku":"Kravaře v Čechách","lat":50.6356951,"lon":14.3922055,"vl":"Monika Rulfová","lv":"396","p":"855"},{"ku":"Kravaře v Čechách","lat":50.6356951,"lon":14.3922055,"vl":"Monika Rulfová","lv":"396","p":"874/4"},{"ku":"Kravaře v Čechách","lat":50.6356951,"lon":14.3922055,"vl":"Monika Rulfová","lv":"396","p":"855"},{"ku":"Krásné Březno","lat":50.6731,"lon":14.0222,"vl":"Lakoplast s.r.o.","lv":"2555","p":"395/6"},{"ku":"Kunčice nad Labem","lat":50.5818627,"lon":15.6194291,"vl":"Gottstein s.r.o","lv":"493","p":"601/19, 601/18"},{"ku":"Kunžak","lat":49.1215178,"lon":15.1907075,"vl":"Vendula Voračková","lv":"522","p":"19, 20/4"},{"ku":"Kříše","lat":49.8296196,"lon":13.5528493,"vl":"Stanislav Kodet","lv":"1351","p":"1720"},{"ku":"Lašovice","lat":50.0549543,"lon":13.7822001,"vl":"Josef Hlaváček","lv":"192","p":"30,31,334/8, 334/9, 335/3, 832"},{"ku":"Lenešice","lat":50.3751609,"lon":13.7658954,"vl":"Kladenská realitní a. s.","lv":"799","p":"3928/4,3928/7"},{"ku":"Lipnice u Dvora Králové","lat":50.4216283,"lon":15.7870889,"vl":"Martin Kursa","lv":"343","p":"187/13"},{"ku":"Litice u Plzně","lat":49.6961681,"lon":13.354728,"vl":"Moon Diamond s.r.o","lv":"1119","p":"85/1 a 1924"},{"ku":"Losiná u Plzně","lat":49.6697,"lon":13.4457,"vl":"BOMBA energy s.r.o.","lv":"153","p":"436/2"},{"ku":"Louny","lat":50.3572914,"lon":13.7969195,"vl":"Moštárna Louny In s.r.o","lv":"5045","p":"4464/21"},{"ku":"Lukavice u Rychnova nad Kněžnou","lat":50.2056044,"lon":16.3039255,"vl":"Ondřej Kábrt","lv":"100","p":"243/1"},{"ku":"Lukovna","lat":50.0792443,"lon":15.8437738,"vl":"Martin Hetík","lv":"39","p":"219/33"},{"ku":"Lukášov","lat":50.7486905,"lon":15.1352442,"vl":"AUTO MOSKAL, s.r.o.","lv":"6513","p":"50/1"},{"ku":"Mladá Boleslav","lat":50.4116187,"lon":14.9031301,"vl":"Remindee s.r.o.","lv":"1203","p":""},{"ku":"Mladějov v Čechách","lat":50.4844977,"lon":15.2283314,"vl":"","lv":"","p":""},{"ku":"Mohelnice","lat":49.7769472,"lon":16.9196183,"vl":"Vítězslav Kočka","lv":"756","p":"2497 l24,2497 l28, 2497 l30, 2497 l3I"},{"ku":"Mokré Lazce","lat":49.9046163,"lon":18.0295367,"vl":"Ing.Stanislav Gala","lv":"789","p":"532, 533, 534, 523; 532), 790 (zbytek)"},{"ku":"Moravská Třebová","lat":49.7581546,"lon":16.6641472,"vl":"Roman Pavlík","lv":"3841","p":""},{"ku":"Místek","lat":49.676205,"lon":18.3355026,"vl":"","lv":"3487","p":"1341/24"},{"ku":"Nižní Lhoty","lat":49.6461184,"lon":18.4367594,"vl":"Zermědělské družstvo vlastníků Nošovice","lv":"13","p":"530/1 a 530/7"},{"ku":"Novákovice","lat":49.3749679,"lon":13.2619082,"vl":"Stanislav Kodet","lv":"193","p":"52/4"},{"ku":"Nové Hvězdlice","lat":49.2001799,"lon":17.0933572,"vl":"New Home Invest s.r.o.","lv":"74","p":"144, 152"},{"ku":"Návsí","lat":49.5868285,"lon":18.7585565,"vl":"Pavel Pyszko","lv":"3067","p":"2428/10"},{"ku":"Návsí","lat":49.5868285,"lon":18.7585565,"vl":"Pavel Pyszko","lv":"3067","p":"2428/10"},{"ku":"Obora v Podbezdězí","lat":50.5367,"lon":14.7883,"vl":"Lukáš Schaffer","lv":"321","p":"261/1, 802"},{"ku":"Okrouhlá u Chebu","lat":50.0579892,"lon":12.4784286,"vl":"TurboTruck s.r.o","lv":"178","p":"86/1, 86/2, 1064/5,1064/6"},{"ku":"Olešná u Pelhřimova","lat":49.4423446,"lon":15.2625723,"vl":"Tomáš Studený","lv":"417","p":"118/9, 118/5"},{"ku":"Orlová","lat":49.8459427,"lon":18.4309274,"vl":"Renav s.r.o.","lv":"1198","p":"4298/1"},{"ku":"Podobora","lat":49.781601,"lon":18.5888116,"vl":"Věra Kovaříková","lv":"36","p":"96, 95"},{"ku":"Polichno","lat":49.0679664,"lon":17.7115307,"vl":"Česlav Gojniczek","lv":"454","p":""},{"ku":"Poruba","lat":49.8297533,"lon":18.1720559,"vl":"ANTICOR Bohemia s.r.o.","lv":"7408","p":"2869/69"},{"ku":"Počaply","lat":49.538665,"lon":13.9834557,"vl":"Václav Grabaczewski","lv":"124","p":"291/1, 16"},{"ku":"Praskačka","lat":50.1725729,"lon":15.7425601,"vl":"Areál Praskačka s.r.o.","lv":"660","p":"305/4, 306, 338, 341/2, 500/7"},{"ku":"Praskačka","lat":50.1725729,"lon":15.7425601,"vl":"Ladislav Štoček","lv":"374","p":""},{"ku":"Přívoz","lat":49.8567682,"lon":18.2644532,"vl":"Saša Císařová","lv":"1815","p":"373/54"},{"ku":"Rudíkovy","lat":50.1858046,"lon":17.5800372,"vl":"František Odvrša","lv":"71","p":""},{"ku":"Slatiny","lat":50.3667694,"lon":15.3813958,"vl":"Martin Zdráhala","lv":"813","p":"676/4, 676/8"},{"ku":"Slezské předměstí","lat":50.2197921,"lon":15.8577548,"vl":"Alesrent s.r.o.","lv":"26673","p":"1930/3"},{"ku":"Smiřice","lat":50.2995707,"lon":15.8645911,"vl":"PhDr. Vítězslav Javůrek","lv":"696","p":""},{"ku":"Soběchleby u Podbořan","lat":50.2155263,"lon":13.5154363,"vl":"Veronika Havlátová Drozdová, Karel Schedivý","lv":"262","p":"176/1, 1902/1"},{"ku":"Solnice","lat":50.2030082,"lon":16.2383273,"vl":"Josef Strnad; spol. s r.o","lv":"1030","p":"st. 366/1"},{"ku":"Staré Sedlo u Sokolova","lat":50.1772041,"lon":12.7136136,"vl":"Jiří Křeček, JUDr. Jan Durný","lv":"332","p":"590/2"},{"ku":"Starý Plzenec","lat":49.6978507,"lon":13.4735561,"vl":"AKRUH plus, s.r.o.","lv":"2836","p":"524/2, 524/3,521/17, 1444/59"},{"ku":"Svatava","lat":50.192255,"lon":12.6250425,"vl":"Roman","lv":"348","p":"469/64"},{"ku":"Světlá nad Sázavou","lat":49.6732,"lon":15.4053,"vl":"N & N Proinvest Holding s.r.o.","lv":"3360","p":"1839/4, 1839/5, 276, 273, 1092/6"},{"ku":"Trpoměchy","lat":50.2499925,"lon":14.061769,"vl":"Jan Baňka","lv":"56","p":"6/7"},{"ku":"Tuchlovice","lat":50.138134,"lon":13.9910741,"vl":"Michal Neumann","lv":"1512","p":"1258/16, 1259/1"},{"ku":"Tuchonice","lat":49.8475,"lon":13.2575,"vl":"Radek Strnad, Martina Strnadová","lv":"227","p":"659/3"},{"ku":"Týnec nad Labem (772 356)","lat":50.0418987,"lon":15.3580835,"vl":"Miroslav Smutný","lv":"1694","p":"1937/22; 1937/21"},{"ku":"Týnec nad Labem (772 356)","lat":50.0418987,"lon":15.3580835,"vl":"Miroslav Smutný","lv":"1694","p":"1898/24; 1898/26"},{"ku":"Třebechovice","lat":50.2007842,"lon":15.993087,"vl":"Tereza Třísková","lv":"3641","p":"17"},{"ku":"Třískolupy","lat":49.6441141,"lon":12.717355,"vl":"Nitor Solis a. s.","lv":"","p":"2031-2045, 1827, 1825, 159/19, 159/17, st.76-součástí pozemku je stavba"},{"ku":"Unčovice","lat":49.6669956,"lon":17.1063865,"vl":"Michala Bezlekova Ph.D.","lv":"488","p":""},{"ku":"Valašská Bystřice","lat":49.4146817,"lon":18.1101768,"vl":"Martinek Miroslav","lv":"2062","p":""},{"ku":"Velké Heřmanice","lat":49.8908,"lon":15.8018,"vl":"Ing. Lenka Kardová Chmelutová","lv":"228","p":"906/14"},{"ku":"Volduchy","lat":49.7759823,"lon":13.6226574,"vl":"Růžena Černá","lv":"42","p":"1017/5"},{"ku":"Vrchlabí","lat":50.6271452,"lon":15.6095779,"vl":"ABM REAL a. s.","lv":"4216","p":"1385/26"},{"ku":"Vítkov u Sokolova","lat":50.1630777,"lon":12.6840371,"vl":"Martina Melike Husáková","lv":"323","p":""},{"ku":"Všeruby u Plzně","lat":49.8405751,"lon":13.2411364,"vl":"Ondřej Klik","lv":"608","p":"1564/93"},{"ku":"Zbiroh","lat":49.8592406,"lon":13.7711465,"vl":"Stanislav Kodet","lv":"1631","p":"1348"},{"ku":"Zlatá Olešnice","lat":50.6179098,"lon":15.944775,"vl":"Jiří Ferbas","lv":"255","p":"172/1, 1454, 1456/1"},{"ku":"Záhraď","lat":49.8775576,"lon":16.3398447,"vl":"Jiří Skřivan","lv":"4093","p":""},{"ku":"Okres","lat":49.7077965,"lon":14.8155533,"vl":"","lv":"","p":""},{"ku":"Černovice u Chomutova","lat":50.4414,"lon":13.3822,"vl":"Ondřej Svoboda","lv":"","p":"2733/2"},{"ku":"Červenka","lat":49.7186878,"lon":17.0853904,"vl":"ZP Červenka, a. s.","lv":"664","p":"1110/28"},{"ku":"Červený Potok","lat":50.2333743,"lon":14.0919351,"vl":"Roman Kotráš","lv":"1817","p":""},{"ku":"Česká Kamenice","lat":50.7994117,"lon":14.4165592,"vl":"BSpb s.r.o","lv":"1973","p":"924/2, 927/3"},{"ku":"České Meziříčí","lat":50.2868003,"lon":16.0442801,"vl":"Miloš","lv":"892","p":"215"},{"ku":"Štěnkov","lat":50.1805431,"lon":15.9953289,"vl":"Gustav Aleš","lv":"2855","p":"185/1"},{"ku":"​Štěnovice","lat":49.6705136,"lon":13.3996302,"vl":"Habr reality, s.r.o.​","lv":"1807","p":"636/1, 636/2, 1102/3"},{"ku":"​Štěnovice","lat":49.6705136,"lon":13.3996302,"vl":"Habr reality, s.r.o.​","lv":"1807","p":"636/1, 636/2, 1102/3"},{"ku":"Štěnovice","lat":49.6705136,"lon":13.3996302,"vl":"MGr.Andrea Silovská","lv":"1465","p":"1072/1"},{"ku":"Šumperk","lat":49.9655521,"lon":16.9705651,"vl":"Marta Grúzová","lv":"3029","p":"616/1"},{"ku":"Šťáhlavice","lat":49.6600534,"lon":13.5253807,"vl":"Ing. Vladimír Soukup","lv":"2301","p":"442/2"},{"ku":"Pardubice","lat":50.0385812,"lon":15.7791356,"vl":"Gustav Aleš","lv":"59965","p":"4074/9"},{"ku":"Újezdec u Přerova","lat":49.4309778,"lon":17.4733486,"vl":"Pittnerová Romana","lv":"550","p":"1184, 1144, 1089, 1093,1228"},{"ku":"Újezdec u Přerova","lat":49.4309778,"lon":17.4733486,"vl":"Pittnerová Romana","lv":"550","p":"1184, 1144, 1089, 1093,1228"},{"ku":"Dolní Chodov","lat":50.2267,"lon":12.6567,"vl":"Jan Tícha","lv":"8955","p":"2665/45, 2667/44, 2665/43"},{"ku":"Zruč nad Sázavou","lat":49.740296,"lon":15.106074,"vl":"Vladimír Bazoni","lv":"1616","p":"1852/1, 2, 3"},{"ku":"Široká Niva","lat":50.0674752,"lon":17.485208,"vl":"Petr Pastelák","lv":"325","p":"1244/1"},{"ku":"Rokycany","lat":49.7428813,"lon":13.594778,"vl":"INSTAVBAU s.r.o.","lv":"678","p":"2462/1"},{"ku":"Bystřice nad Olší","lat":49.6345363,"lon":18.7421353,"vl":"NETIS, a. s.","lv":"1974","p":"5048/9"},{"ku":"Dolní Lutyně","lat":49.8988168,"lon":18.4281743,"vl":"NETIS, a. s.","lv":"1929","p":"1637/1"},{"ku":"Hovorčovice","lat":50.179459,"lon":14.51716,"vl":"Pavel Horvát","lv":"30","p":"83/1"},{"ku":"Klášter Hradiště nad Jizerou","lat":50.5234762,"lon":14.9450096,"vl":"","lv":"231","p":"203/18,203/26,203/23,98/3"},{"ku":"Liboměřice","lat":49.8718499,"lon":15.7412911,"vl":"Ing. Josef Kohout","lv":"408","p":"538/21"},{"ku":"Louka u Litvínova","lat":50.5958,"lon":13.62,"vl":"Martin Prudký, Karel Bubík, Pavel Seifert","lv":"4944","p":"4944"},{"ku":"Lázně Bohdaneč","lat":50.0764166,"lon":15.6798078,"vl":"Remindee s.r.o.","lv":"2163","p":"962/1"},{"ku":"Líšnice u Mostu","lat":50.5592,"lon":13.5833,"vl":"DUALCAR s.r.o.","lv":"120","p":"79/1"},{"ku":"Masečín","lat":49.8511811,"lon":14.3804769,"vl":"Tomáš Cihelka, František Cihelka","lv":"1507","p":"404/4"},{"ku":"Návsí","lat":49.5868285,"lon":18.7585565,"vl":"NETIS, a. s.","lv":"3483","p":"2573/27"},{"ku":"Návsí","lat":49.5868285,"lon":18.7585565,"vl":"NETIS, a. s.","lv":"3483","p":"2573/27"},{"ku":"Rychvald","lat":49.8663296,"lon":18.376392,"vl":"GESONET AGRO, s. r. o.","lv":"3973","p":"6574/2"},{"ku":"Staměřice","lat":49.5616298,"lon":17.4989236,"vl":"Miroslav Havlý, Milada Havlá","lv":"795","p":"40/44"},{"ku":"Třinec","lat":49.6779212,"lon":18.6711993,"vl":"Agricoop Třinec, a. s.","lv":"3029","p":"1679/1"},{"ku":"Zastávka","lat":49.1885,"lon":16.3655,"vl":"Zoran Jušič","lv":"62","p":""},{"ku":"Zdiměřice u Prahy","lat":49.9873504,"lon":14.5288193,"vl":"Petr Novák","lv":"462","p":"252/42, 252/59"},{"ku":"Štěnovice","lat":49.6705136,"lon":13.3996302,"vl":"Kopřiva","lv":"","p":""},{"ku":"Štěnovice","lat":49.6705136,"lon":13.3996302,"vl":"","lv":"","p":""}];
+
+var map = L.map('map').setView([49.8,15.5],7);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'OpenStreetMap, CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+var zoneStyles = {
+  1:{fillColor:'#38a800',fillOpacity:0.5,weight:1,color:'#2d8600',opacity:0.6},
+  2:{fillColor:'#ffff00',fillOpacity:0.45,weight:1,color:'#cccc00',opacity:0.6},
+  3:{fillColor:'#ffaa00',fillOpacity:0.4,weight:0.8,color:'#cc8800',opacity:0.5}
+};
+var zoneLabels = {1:'Volna kapacita >10 MW',2:'Volna kapacita <=10 MW',3:'Omezeni pripojeni VN'};
+
+var zonesLayer = L.geoJSON(zonesData, {
+  style: function(f) { return zoneStyles[f.properties.b] || {fillColor:'#ccc',fillOpacity:0.1,weight:0.5,color:'#999'}; },
+  interactive: false
+}).addTo(map);
+
+var akuVNStyles = {
+  1:{fillColor:'#1565c0',fillOpacity:0.55,weight:1,color:'#0d47a1',opacity:0.6},
+  2:{fillColor:'#64b5f6',fillOpacity:0.5,weight:1,color:'#42a5f5',opacity:0.6},
+  3:{fillColor:'#607d8b',fillOpacity:0.45,weight:0.8,color:'#455a64',opacity:0.5}
+};
+var akuVNLabels = {1:'Akumulace VN - volna >10 MW',2:'Akumulace VN - volna <=10 MW',3:'Akumulace VN - omezeni pripojeni'};
+
+var akuVNLayer = L.geoJSON(akumulaceVN, {
+  style: function(f) {
+    if (!f.properties.b) return {fillOpacity:0,weight:0,stroke:false};
+    return akuVNStyles[f.properties.b] || {fillOpacity:0,weight:0,stroke:false};
+  },
+  onEachFeature: function(f, layer) {
+    if (f.properties.b && akuVNLabels[f.properties.b]) layer.bindTooltip(akuVNLabels[f.properties.b]);
+  }
+});
+
+var akuVVNStyles = {
+  1:{fillColor:'#6a1b9a',fillOpacity:0.5,weight:1,color:'#4a148c',opacity:0.6},
+  2:{fillColor:'#ba68c8',fillOpacity:0.45,weight:1,color:'#ab47bc',opacity:0.6},
+  3:{fillColor:'#333333',fillOpacity:0.35,weight:0.8,color:'#111111',opacity:0.5}
+};
+var akuVVNLabels = {1:'Akumulace VVN - volna >50 MW',2:'Akumulace VVN - volna <=50 MW transformace PS/vvn',3:'Akumulace VVN - omezeni pripojeni'};
+
+var akuVVNLayer = L.geoJSON(akumulaceVVN, {
+  style: function(f) {
+    if (!f.properties.b) return {fillOpacity:0,weight:0,stroke:false};
+    return akuVVNStyles[f.properties.b] || {fillOpacity:0,weight:0,stroke:false};
+  },
+  onEachFeature: function(f, layer) {
+    if (f.properties.b && akuVVNLabels[f.properties.b]) layer.bindTooltip(akuVVNLabels[f.properties.b]);
+  }
+});
+
+var markers = L.markerClusterGroup({maxClusterRadius:35,
+  iconCreateFunction: function(cluster) {
+    var count = cluster.getChildCount();
+    return L.divIcon({html:'<div style="background:#7c3aed;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">'+count+'</div>',className:'',iconSize:[36,36]});
+  }
+});
+var allMarkers = [];
+
+points.forEach(function(p) {
+  var marker = L.circleMarker([p.lat,p.lon],{
+    radius:9,fillColor:'#7c3aed',color:'#fff',weight:2.5,fillOpacity:0.9
+  });
+
+  var html = '';
+  if (p.vl) html += '<div class="pp-owner">'+p.vl+'</div>';
+  html += '<div class="pp-ku">'+p.ku+'</div>';
+  if (p.lv) html += '<div class="pp-row"><b>LV:</b> '+p.lv+'</div>';
+  if (p.p) html += '<div class="pp-row"><b>Parcely:</b> '+p.p+'</div>';
+
+  marker.bindPopup(html,{maxWidth:350});
+  markers.addLayer(marker);
+  allMarkers.push({marker:marker,point:p});
+});
+
+map.addLayer(markers);
+
+// Rozvodny - triangle markers
+function triangleIcon(color, size) {
+  var s = size || 12;
+  var svg = '<svg width="'+(s*2)+'" height="'+(s*2)+'" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+    + '<polygon points="12,2 22,20 2,20" fill="'+color+'" stroke="white" stroke-width="2"/></svg>';
+  return L.divIcon({html:svg, className:'', iconSize:[s*2,s*2], iconAnchor:[s,s*1.2]});
+}
+
+var rozvodnyLayer = L.layerGroup();
+rozvodnyData.forEach(function(r) {
+  var color = r.v === 400 ? '#8B4513' : '#e91e90';
+  var size = r.v === 400 ? 14 : 10;
+  var m = L.marker([r.lat, r.lon], {icon: triangleIcon(color, size)});
+  var label = r.v === 400 ? 'Rozvodna 400 kV' : 'Rozvodna VN';
+  m.bindPopup('<strong>'+r.n+'</strong><br>'+label);
+  rozvodnyLayer.addLayer(m);
+});
+rozvodnyLayer.addTo(map);
+
+document.getElementById('toggleZones').onchange=function(){
+  this.checked ? map.addLayer(zonesLayer) : map.removeLayer(zonesLayer);
+};
+document.getElementById('toggleSouhlasy').onchange=function(){
+  this.checked ? map.addLayer(markers) : map.removeLayer(markers);
+};
+document.getElementById('toggleRozvodny').onchange=function(){
+  this.checked ? map.addLayer(rozvodnyLayer) : map.removeLayer(rozvodnyLayer);
+};
+document.getElementById('toggleAkuVN').onchange=function(){
+  this.checked ? map.addLayer(akuVNLayer) : map.removeLayer(akuVNLayer);
+};
+document.getElementById('toggleAkuVVN').onchange=function(){
+  this.checked ? map.addLayer(akuVVNLayer) : map.removeLayer(akuVVNLayer);
+};
+
+var searchInput=document.getElementById('search');
+var resultsDiv=document.getElementById('results');
+searchInput.addEventListener('input',function(){
+  var q=this.value.toLowerCase().trim();
+  resultsDiv.innerHTML='';
+  if(q.length<1) return;
+  allMarkers.filter(function(m){
+    var p=m.point;
+    return p.ku.toLowerCase().indexOf(q)>=0||(p.vl&&p.vl.toLowerCase().indexOf(q)>=0)||(p.p&&p.p.indexOf(q)>=0)||(p.lv&&p.lv.indexOf(q)>=0);
+  }).slice(0,15).forEach(function(m){
+    var p=m.point;
+    var div=document.createElement('div');
+    div.textContent=p.ku+(p.vl?' \u2014 '+p.vl:'');
+    div.onclick=function(){
+      map.setView([p.lat,p.lon],13);
+      markers.zoomToShowLayer(m.marker,function(){m.marker.openPopup()});
+      resultsDiv.innerHTML='';
+    };
+    resultsDiv.appendChild(div);
+  });
+});
+document.addEventListener('click',function(e){if(!e.target.closest('.search-box'))resultsDiv.innerHTML=''});
+</script>
+</div>
+
+<script>
+(function(){
+  var CORRECT_HASH = "b1963b84ab480a533f74f783fa2b8abc6b96b9309e68286634f086eb318926cc";
+  async function sha256(text){
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  function unlock(){
+    document.getElementById('lockscreen').style.display='none';
+    document.getElementById('appwrap').style.display='block';
+  }
+  if (sessionStorage.getItem('ms_unlocked') === '1') {
+    unlock();
+  }
+  document.getElementById('lockform').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var pw = document.getElementById('pw').value;
+    var h = await sha256(pw);
+    if (h === CORRECT_HASH) {
+      sessionStorage.setItem('ms_unlocked','1');
+      unlock();
+    } else {
+      document.getElementById('pwerr').textContent = 'Nespravne heslo';
+    }
+  });
+})();
+</script>
+</body>
+</html>
