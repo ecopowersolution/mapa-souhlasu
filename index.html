@@ -255,6 +255,10 @@ document.addEventListener('click',function(e){if(!e.target.closest('.search-box'
   function unlock(){
     document.getElementById('lockscreen').style.display='none';
     document.getElementById('appwrap').style.display='block';
+    if (window.map && map.invalidateSize) {
+      map.invalidateSize();
+      map.setView([49.8,15.5],7);
+    }
   }
   if (sessionStorage.getItem('ms_unlocked') === '1') {
     unlock();
