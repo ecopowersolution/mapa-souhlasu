@@ -66,18 +66,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
   <div class="search-results" id="results"></div>
 </div>
 <div class="layer-toggle">
-  <label><input type="checkbox" id="toggleZones" checked> CEZ VN zony (pripojeni)</label>
+  <label><input type="checkbox" id="toggleAkuVN" checked> Akumulace VN</label>
+  <label><input type="checkbox" id="toggleAkuVVN"> Akumulace VVN</label>
   <label><input type="checkbox" id="toggleSouhlasy" checked> Souhlasy</label>
   <label><input type="checkbox" id="toggleRozvodny" checked> Rozvodny</label>
-  <label><input type="checkbox" id="toggleAkuVN"> Akumulace VN</label>
-  <label><input type="checkbox" id="toggleAkuVVN"> Akumulace VVN</label>
+  <label><input type="checkbox" id="toggleZones"> CEZ VN zony (vyroba)</label>
 </div>
 <div class="panel info">
   <h3>Souhlasy vlastniku</h3>
   <div class="stat">Souhlasu na mape: <b>151</b></div>
 </div>
 <div class="legend">
-  <div class="legend-title">CEZ VN kapacity (pripojeni)</div>
+  <div class="legend-title">Akumulace - volna kapacita (CEZ)</div>
   <div class="legend-item"><div class="legend-rect" style="background:rgba(56,168,0,0.5)"></div> Volna >10 MW</div>
   <div class="legend-item"><div class="legend-rect" style="background:rgba(255,255,0,0.5)"></div> Volna <=10 MW</div>
   <div class="legend-item"><div class="legend-rect" style="background:rgba(255,170,0,0.45)"></div> Omezeni pripojeni</div>
@@ -87,16 +87,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
   <div class="legend-title">Rozvodny</div>
   <div class="legend-item"><div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #e91e90"></div> Rozvodna VN</div>
   <div class="legend-item"><div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #8B4513"></div> Rozvodna 400 kV</div>
-  <div class="legend-sep"></div>
-  <div class="legend-title">Akumulace VN (baterie)</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(21,101,192,0.55)"></div> Volna >10 MW</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(100,181,246,0.5)"></div> Volna <=10 MW</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(96,125,139,0.45)"></div> Omezeni pripojeni</div>
-  <div class="legend-sep"></div>
-  <div class="legend-title">Akumulace VVN (baterie)</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(106,27,154,0.5)"></div> Volna >50 MW</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(186,104,200,0.45)"></div> Volna <=50 MW transformace PS/vvn</div>
-  <div class="legend-item"><div class="legend-rect" style="background:rgba(50,50,50,0.35)"></div> Omezeni pripojeni</div>
 </div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -123,12 +113,12 @@ var zoneLabels = {1:'Volna kapacita >10 MW',2:'Volna kapacita <=10 MW',3:'Omezen
 var zonesLayer = L.geoJSON(zonesData, {
   style: function(f) { return zoneStyles[f.properties.b] || {fillColor:'#ccc',fillOpacity:0.1,weight:0.5,color:'#999'}; },
   interactive: false
-}).addTo(map);
+});
 
 var akuVNStyles = {
-  1:{fillColor:'#1565c0',fillOpacity:0.55,weight:1,color:'#0d47a1',opacity:0.6},
-  2:{fillColor:'#64b5f6',fillOpacity:0.5,weight:1,color:'#42a5f5',opacity:0.6},
-  3:{fillColor:'#607d8b',fillOpacity:0.45,weight:0.8,color:'#455a64',opacity:0.5}
+  1:{fillColor:'#38a800',fillOpacity:0.5,weight:1,color:'#2d8600',opacity:0.6},
+  2:{fillColor:'#ffff00',fillOpacity:0.45,weight:1,color:'#cccc00',opacity:0.6},
+  3:{fillColor:'#ffaa00',fillOpacity:0.4,weight:0.8,color:'#cc8800',opacity:0.5}
 };
 var akuVNLabels = {1:'Akumulace VN - volna >10 MW',2:'Akumulace VN - volna <=10 MW',3:'Akumulace VN - omezeni pripojeni'};
 
@@ -140,12 +130,12 @@ var akuVNLayer = L.geoJSON(akumulaceVN, {
   onEachFeature: function(f, layer) {
     if (f.properties.b && akuVNLabels[f.properties.b]) layer.bindTooltip(akuVNLabels[f.properties.b]);
   }
-});
+}).addTo(map);
 
 var akuVVNStyles = {
-  1:{fillColor:'#6a1b9a',fillOpacity:0.5,weight:1,color:'#4a148c',opacity:0.6},
-  2:{fillColor:'#ba68c8',fillOpacity:0.45,weight:1,color:'#ab47bc',opacity:0.6},
-  3:{fillColor:'#333333',fillOpacity:0.35,weight:0.8,color:'#111111',opacity:0.5}
+  1:{fillColor:'#38a800',fillOpacity:0.5,weight:1,color:'#2d8600',opacity:0.6},
+  2:{fillColor:'#ffff00',fillOpacity:0.45,weight:1,color:'#cccc00',opacity:0.6},
+  3:{fillColor:'#ffaa00',fillOpacity:0.4,weight:0.8,color:'#cc8800',opacity:0.5}
 };
 var akuVVNLabels = {1:'Akumulace VVN - volna >50 MW',2:'Akumulace VVN - volna <=50 MW transformace PS/vvn',3:'Akumulace VVN - omezeni pripojeni'};
 

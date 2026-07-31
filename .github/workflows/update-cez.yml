@@ -1,0 +1,53 @@
+name: Update CEZ akumulace
+
+# CEZ aktualizuje mapu 1x mesicne -> refreshujeme k poslednimu dni v mesici.
+# Actions cron neumi "posledni den", takze bezime 28.-31. a spustime jen ten den,
+# kdy je zitra 1. Lze spustit i rucne (workflow_dispatch).
+on:
+  schedule:
+    - cron: '0 5 28-31 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Je dnes posledni den v mesici?
+        id: check
+        run: |
+          if [ "$(date -u -d '+1 day' +%d)" = "01" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=no" >> "$GITHUB_OUTPUT"
+            echo "Neni posledni den v mesici, koncim."
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.run == 'yes'
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: steps.check.outputs.run == 'yes'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Stahnout CEZ akumulace
+        if: steps.check.outputs.run == 'yes'
+        run: python3 fetch_cez.py
+
+      - name: Commit zmen (pokud jsou)
+        if: steps.check.outputs.run == 'yes'
+        run: |
+          git config user.name "cez-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet akumulace_vn.js akumulace_vvn.js; then
+            echo "Zadne zmeny v CEZ datech."
+          else
+            git add akumulace_vn.js akumulace_vvn.js
+            git commit -m "Auto-update CEZ akumulace ($(date -u +%Y-%m-%d))"
+            git push
+          fi
